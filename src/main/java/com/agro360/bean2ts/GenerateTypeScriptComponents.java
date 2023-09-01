@@ -31,7 +31,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 
 	private static final String ROOT_PACKAGE = "com.agro360";
 	
-	private static final String TS_PROJECT_ROOT_DIR = "/home/bigmwaj/workspace/0-projects/0-commercial/agro360v2/agro360-web-client/src/app/";
+	private static final String TS_PROJECT_ROOT_DIR = "C:\\WorkSpace\\0-projects\\0-business\\agro360v2\\agro360-web-client\\src\\app\\";
 
 	private final List<String> filterParam = Arrays.asList("Bean", "EnumVd", "Message", "FieldMetadata");
 
@@ -122,7 +122,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	private Set<TsFieldModel> getTsFields(Class<?> klass){
 		if( klass.isEnum() ) {
 			return Arrays.stream(klass.getEnumConstants())
-				.map(e -> TsFieldModel.builder().name("\"" + e + "\"").build())
+				.map(e -> TsFieldModel.builder().name(e.toString()).build())
 				.collect(Collectors.toSet());
 		}
 		return Arrays.stream(klass.getDeclaredFields())

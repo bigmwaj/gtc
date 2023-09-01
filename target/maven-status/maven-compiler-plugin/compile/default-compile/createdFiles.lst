@@ -1,0 +1,10 @@
+com\agro360\model\TsComponentModel$TYPE.class
+com\agro360\model\TsComponentModel.class
+com\agro360\util\CommonUtils.class
+com\agro360\bean2ts\GenerateTypeScriptComponents.class
+com\agro360\model\TsModuleModel$TsModuleModelBuilder.class
+ca\eliteproservice\bean2ts_maven_plugin\HelpMojo.class
+com\agro360\model\TsComponentModel$TsComponentModelBuilder.class
+com\agro360\model\TsFieldModel$TsFieldModelBuilder.class
+com\agro360\model\TsFieldModel.class
+com\agro360\model\TsModuleModel.class

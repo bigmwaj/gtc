@@ -24,7 +24,9 @@ public class CommonUtils {
 		case "List":
 		case "Set":
 			return "Array";
-			
+
+		case "short":
+		case "Short":
 		case "long":
 		case "Long":
 		case "int":

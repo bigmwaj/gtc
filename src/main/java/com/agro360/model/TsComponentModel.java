@@ -1,6 +1,7 @@
 package com.agro360.model;
 
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import lombok.Builder;
@@ -39,8 +40,10 @@ public class TsComponentModel {
 
 	public String getComponentCodeWithoutImport() {		
 		if( TYPE.TYPE.equals(type)) {
-			var typeFormat = "export type %s = %s;";
-			var values = fields.stream().map(TsFieldModel::getName).collect(Collectors.joining(" | "));
+			var typeFormat = "export enum %s { %s };";
+			Function<String, String> valueMapper = (String e) -> String.format("%s = '%s'", e, e);
+			var values = fields.stream().map(TsFieldModel::getName).map(valueMapper)
+					.collect(Collectors.joining(", "));
 			return String.format(typeFormat, name, values);
 		}else {
 			var finalName = name;

@@ -31,6 +31,10 @@ public class TsComponentModel {
 	private String extend;
 	
 	private String extendJavaName;
+	
+	private String extendParameterName;
+	
+	private String extendParameterJavaClassName;
 
 	private Set<TsFieldModel> fields;
 	
@@ -41,7 +45,7 @@ public class TsComponentModel {
 	public String getComponentCodeWithoutImport() {		
 		if( TYPE.TYPE.equals(type)) {
 			var typeFormat = "export enum %s { %s };";
-			Function<String, String> valueMapper = (String e) -> String.format("%s = '%s'", e, e);
+			Function<String, String> valueMapper = e -> String.format("%s = '%s'", e, e);
 			var values = fields.stream().map(TsFieldModel::getName).map(valueMapper)
 					.collect(Collectors.joining(", "));
 			return String.format(typeFormat, name, values);
@@ -52,6 +56,10 @@ public class TsComponentModel {
 			}
 			if( extend != null ) {
 				finalName += " extends " + extend;
+				
+				if( extendParameterJavaClassName != null ) {
+					finalName += "<" + extendParameterName + ">";
+				}
 			}
 			var sourceCode = fields.stream().map(TsFieldModel::getFieldCode).collect(Collectors.joining("\n"));
 			var interfaceFormat = "\nexport interface %s {\n%s\n};";

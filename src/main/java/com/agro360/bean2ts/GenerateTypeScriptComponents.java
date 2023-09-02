@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -24,24 +25,27 @@ import com.agro360.model.TsComponentModel.TYPE;
 import com.agro360.model.TsFieldModel;
 import com.agro360.model.TsModuleModel;
 import com.agro360.service.bean.common.AbstractLigneBean;
+import com.agro360.service.utils.TypeScriptInfos;
 import com.agro360.util.CommonUtils;
 
 @Mojo(name = "gtc")
 public class GenerateTypeScriptComponents extends AbstractMojo {
 
-	private static final String ROOT_PACKAGE = "com.agro360";
+	private static final String SOURCE_ROOT_PACKAGE = "com.agro360";
 	
-	private static final String TS_PROJECT_ROOT_DIR = "C:\\WorkSpace\\0-projects\\0-business\\agro360v2\\agro360-web-client\\src\\app\\";
+	private static final String TS_PROJECT_APP_DIR = "C:\\WorkSpace\\0-projects\\0-business\\agro360v2\\agro360-web-client\\src\\app\\";
 
-	private final List<String> filterParam = Arrays.asList("Bean", "EnumVd", "Message", "FieldMetadata");
+	private final List<String> mappableComponentPostfix = Arrays.asList("Bean", "EnumVd", "Message", "FieldMetadata");
 
 	public void execute() throws MojoExecutionException {
 
 		try {
-			getLog().info(String.format("Scanning class %s", ROOT_PACKAGE));
-			deleteDir(new File(TS_PROJECT_ROOT_DIR + "/backed"));
+			getLog().info(String.format("Scanning class %s", SOURCE_ROOT_PACKAGE));
+			deleteDir(new File(TS_PROJECT_APP_DIR + "/backed"));
+			
 			var components = scanneClasses();
-			var importSource = components.stream().collect(Collectors.toMap(TsComponentModel::getJavaName, e -> e));
+			var importSource = components.stream()
+					.collect(Collectors.toMap(TsComponentModel::getJavaName, e -> e));
 			
 			components.stream().collect(Collectors.toMap(TsComponentModel::getNamespace, Collections::singleton, CommonUtils::merge))
 					.entrySet()
@@ -72,12 +76,12 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	protected void saveTsFile(Map<String, TsComponentModel> importSource, TsModuleModel module) {
-		var backedDir = new File(TS_PROJECT_ROOT_DIR+ "/backed/");
+		var backedDir = new File(TS_PROJECT_APP_DIR + "/backed/");
 		if( !backedDir.exists()) {
 			backedDir.mkdirs();
 		}
-		var file = new File(TS_PROJECT_ROOT_DIR + "/backed/" + module.getNamespace() + ".ts");
-		try(BufferedWriter out = new BufferedWriter(new FileWriter(file, false))) {
+		var file = new File(TS_PROJECT_APP_DIR + "/backed/" + module.getNamespace() + ".ts");
+		try(var out = new BufferedWriter(new FileWriter(file, false))) {
 			file.createNewFile();
 			out.write(module.getCode(importSource));
 		} catch (Exception e) {
@@ -86,10 +90,10 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private Set<TsComponentModel> scanneClasses(){
-		Predicate<Class<?>> filter = (s) -> filterParam.stream().anyMatch(s.getName()::endsWith);
+		Predicate<Class<?>> filter = (s) -> mappableComponentPostfix.stream().anyMatch(s.getName()::endsWith);
 		return Arrays.asList(
-				new Reflections(ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Enum.class),
-				new Reflections(ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Object.class)
+				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Enum.class),
+				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Object.class)
 			)
 			.stream()
 			.flatMap(Set::stream)
@@ -103,7 +107,9 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private String getTsNamespace(Class<?> klass) {
-		var ns = klass.getName().replace(ROOT_PACKAGE, "").replace(klass.getSimpleName(), "").replace(".service", "");
+		var ns = klass.getName().replace(SOURCE_ROOT_PACKAGE, "")
+				.replace(klass.getSimpleName(), "")
+				.replace(".service", "");
 		
 		if( ns.startsWith(".")) {
 			ns = ns.substring(1);
@@ -149,8 +155,33 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		return null;
 	}
 	
+	private String getExtendParameterJavaName(Class<?> klass) {
+		if( klass.isAnnotationPresent(TypeScriptInfos.class)) {
+			if( klass.getAnnotation(TypeScriptInfos.class).igroreSuperClassParam() ) {
+				return null;
+			}
+		}
+		var ex = klass.getSuperclass();
+		var params = ex.getTypeParameters();
+		if( params.length != 0 ) {
+			var superClass = klass.getGenericSuperclass().getTypeName();
+			superClass = superClass.substring(1 + superClass.indexOf("<"), superClass.lastIndexOf(">"));
+			return superClass;
+		}
+		return null;
+	}
+	
+	private String getExtendParameterName(Class<?> klass) {		
+		var ex = getExtendParameterJavaName(klass);
+		if( ex != null && ex.contains(".") ) {
+			return ex.substring(ex.lastIndexOf(".") + 1);
+		}
+		return null;
+	}
+	
 	private boolean isGeneric(Class<?> klass) {
-		return !AbstractLigneBean.class.getName().equals(klass.getName()) && klass.getTypeParameters().length>0;
+		return !AbstractLigneBean.class.getName().equals(klass.getName()) 
+				&& klass.getTypeParameters().length > 0;
 	}
 	
 	private String getGenericType(Class<?> klass) {
@@ -171,6 +202,8 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 				.extendJavaName(getExtendJavaName(klass))
 				.isGeneric(isGeneric(klass))
 				.genericType(getGenericType(klass))
+				.extendParameterJavaClassName(getExtendParameterJavaName(klass))
+				.extendParameterName(getExtendParameterName(klass))
 				.build();
 	}
 	
@@ -182,24 +215,34 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		if( !field.getType().equals(Map.class) && isGeneric(field)) {
 			var fieldType = field.toGenericString();
 			fieldType = fieldType.substring(1 + fieldType.indexOf("<"), fieldType.lastIndexOf(">"));
-			return CommonUtils.getTsType(filterParam, fieldType.substring(1 + fieldType.lastIndexOf(".")));
+			return CommonUtils.getTsType(mappableComponentPostfix, fieldType.substring(1 + fieldType.lastIndexOf(".")));
 		}
 		return null;
 	}
 
 	private String getGenericTypeImportJavaType(Field field) {
-		if( isGeneric(field)) {
+		if( isGeneric(field)) {	
 			var fieldType = field.toGenericString();
 			fieldType = fieldType.substring(1 + fieldType.indexOf("<"), fieldType.lastIndexOf(">"));
-			if( filterParam.stream().anyMatch(fieldType::endsWith)) {
+			if( mappableComponentPostfix.stream().anyMatch(fieldType::endsWith)) {
 				return fieldType;
+			}else {
+				var param = Arrays.stream(field.getDeclaringClass().getTypeParameters())
+				.map(Type::getTypeName).anyMatch(fieldType::equals);
+				
+				if( param ) {
+					return fieldType;
+				}
 			}
 		}
 		return null;
 	}
 
 	private String getType(Field field) {
-		return CommonUtils.getTsType(filterParam, field.getType().getSimpleName());
+		if( field.isAnnotationPresent(TypeScriptInfos.class) ) {
+			return field.getAnnotation(TypeScriptInfos.class).type();
+		}
+		return CommonUtils.getTsType(mappableComponentPostfix, field.getType().getSimpleName());
 	}
 	
 	private boolean isEnumValue(Field field) {
@@ -207,7 +250,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private boolean isImportable(Field field) {
-		return filterParam.stream().anyMatch(field.getType().getName()::endsWith);
+		return mappableComponentPostfix.stream().anyMatch(field.getType().getName()::endsWith);
 	}
 	
 	private String getImportJavaType(Field field) {

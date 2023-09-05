@@ -75,6 +75,11 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		}
 	}
 	
+	// TODO
+	private boolean contentChanged(File file, String content) {		
+		return true;
+	}
+	
 	protected void saveTsFile(Map<String, TsComponentModel> importSource, TsModuleModel module) {
 		var backedDir = new File(TS_PROJECT_APP_DIR + "/backed/");
 		if( !backedDir.exists()) {
@@ -82,8 +87,11 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		}
 		var file = new File(TS_PROJECT_APP_DIR + "/backed/" + module.getNamespace() + ".ts");
 		try(var out = new BufferedWriter(new FileWriter(file, false))) {
-			file.createNewFile();
-			out.write(module.getCode(importSource));
+			var code = module.getCode(importSource);
+			if( contentChanged(file, code) ) {
+				file.createNewFile();
+				out.write(code);				
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

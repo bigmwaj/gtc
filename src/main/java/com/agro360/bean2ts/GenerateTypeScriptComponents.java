@@ -146,9 +146,15 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private String getExtend(Class<?> klass) {
-		var ex = klass.getSuperclass().getSimpleName();
-		if (!"Object".equals(ex)) {
-			return ex;
+		try {
+			var ex = klass.getSuperclass().getSimpleName();
+			if (!"Object".equals(ex)) {
+				return ex;
+			}
+		} catch (Exception e) {
+			getLog().error(String.format("L'extension de la class %s contient des erreurs", klass));
+			e.printStackTrace();
+			
 		}
 		
 		return null;

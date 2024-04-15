@@ -33,6 +33,7 @@ public class CommonUtils {
 		case "Integer":
 		case "double":
 		case "Double":			
+		case "BigDecimal":			
 			return "number";
 
 		default:

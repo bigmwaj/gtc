@@ -20,12 +20,12 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 
+import com.agro360.bo.bean.common.AbstractLigneBean;
+import com.agro360.bo.utils.TypeScriptInfos;
 import com.agro360.model.TsComponentModel;
 import com.agro360.model.TsComponentModel.TYPE;
 import com.agro360.model.TsFieldModel;
 import com.agro360.model.TsModuleModel;
-import com.agro360.service.bean.common.AbstractLigneBean;
-import com.agro360.service.utils.TypeScriptInfos;
 import com.agro360.util.CommonUtils;
 
 @Mojo(name = "gtc")
@@ -117,7 +117,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	private String getTsNamespace(Class<?> klass) {
 		var ns = klass.getName().replace(SOURCE_ROOT_PACKAGE, "")
 				.replace(klass.getSimpleName(), "")
-				.replace(".service", "");
+				.replace(".bo", "");
 		
 		if( ns.startsWith(".")) {
 			ns = ns.substring(1);

@@ -8,7 +8,6 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -35,23 +34,35 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	
 	private static final String TS_PROJECT_APP_DIR = "C:\\WorkSpace\\0-projects\\0-business\\agro360v2\\agro360-web-client\\src\\app\\";
 
-	private final List<String> mappableComponentPostfix = Arrays.asList("Bean", "EnumVd", "Message", "FieldMetadata");
+	private final String[] CANDIDATE_COMPONENT_POSTFIX = {
+			"Bean", 
+			"EnumVd", 
+			"Message", 
+			"FieldMetadata"
+	};
 
 	public void execute() throws MojoExecutionException {
-
 		try {
-			getLog().info(String.format("Scanning class %s", SOURCE_ROOT_PACKAGE));
+			getLog().info(String.format("Deleting angular backed dir %s ...", TS_PROJECT_APP_DIR));
 			deleteDir(new File(TS_PROJECT_APP_DIR + "/backed"));
+			getLog().info(String.format("Deleting angular backed dir %s completed. [Succes!]", TS_PROJECT_APP_DIR));
 			
+			getLog().info(String.format("Scanning candidate components from [%s]...", SOURCE_ROOT_PACKAGE));
 			var components = scanneClasses();
+			getLog().info(String.format("Scanning candidate components from [%s] completed! Total scanned %d", SOURCE_ROOT_PACKAGE, components.size()));
+			
+			getLog().info(String.format("Generating typescript components..."));
 			var importSource = components.stream()
 					.collect(Collectors.toMap(TsComponentModel::getJavaName, e -> e));
+			getLog().info(String.format("Generating typescript components completed!"));
 			
+			getLog().info(String.format("Saving typescript components in angular project..."));
 			components.stream().collect(Collectors.toMap(TsComponentModel::getNamespace, Collections::singleton, CommonUtils::merge))
 					.entrySet()
 					.stream()
 					.map(e -> TsModuleModel.builder().namespace(e.getKey()).components(e.getValue()).build())
 					.forEach(e -> saveTsFile(importSource, e));
+			getLog().info(String.format("Saving typescript components in angular project completed!"));
 			
 		} catch (Exception e) {
 			getLog().error(e);
@@ -75,7 +86,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		}
 	}
 	
-	// TODO
+	// TODO Modifier un fichier que si le contenu a changé
 	private boolean contentChanged(File file, String content) {		
 		return true;
 	}
@@ -98,7 +109,12 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private Set<TsComponentModel> scanneClasses(){
-		Predicate<Class<?>> filter = (s) -> mappableComponentPostfix.stream().anyMatch(s.getName()::endsWith);
+		Predicate<Class<?>> filter;
+		filter = (s) -> Arrays.stream(CANDIDATE_COMPONENT_POSTFIX)
+				.anyMatch(s.getName()::endsWith);
+		
+		Predicate<Class<?>> isNotInterface = e -> !e.isInterface();
+		
 		return Arrays.asList(
 				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Enum.class),
 				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Object.class)
@@ -106,6 +122,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 			.stream()
 			.flatMap(Set::stream)
 			.filter(filter)
+			.filter(isNotInterface)
 			.map(this::mapToTsComponentModel)
 			.collect(Collectors.toSet());
 	}
@@ -147,20 +164,23 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	
 	private String getExtend(Class<?> klass) {
 		try {
+			if( klass.isInterface() ) {
+				return null;
+			}
 			var ex = klass.getSuperclass().getSimpleName();
 			if (!"Object".equals(ex)) {
 				return ex;
 			}
+			return null;
 		} catch (Exception e) {
-			getLog().error(String.format("L'extension de la class %s contient des erreurs", klass));
-			e.printStackTrace();
-			
+			throw new RuntimeException(String.format("L'extension de la class %s contient des erreurs", klass), e);
 		}
-		
-		return null;
 	}
 	
 	private String getExtendJavaName(Class<?> klass) {
+		if( klass.isInterface() ) {
+			return null;
+		}
 		var ex = klass.getSuperclass().getName();
 		if (!Object.class.getName().equals(ex)) {
 			return ex;
@@ -170,27 +190,35 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private String getExtendParameterJavaName(Class<?> klass) {
-		if( klass.isAnnotationPresent(TypeScriptInfos.class)) {
-			if( klass.getAnnotation(TypeScriptInfos.class).igroreSuperClassParam() ) {
+		try {
+			if( klass.isAnnotationPresent(TypeScriptInfos.class) && klass.getAnnotation(TypeScriptInfos.class).igroreSuperClassParam()) {
 				return null;
 			}
+			var ex = klass.getSuperclass();
+			var params = ex.getTypeParameters();
+			if( params.length != 0 ) {
+				var superClass = klass.getGenericSuperclass().getTypeName();
+				superClass = superClass.substring(1 + superClass.indexOf("<"), superClass.lastIndexOf(">"));
+				return superClass;
+			}
+			return null;
+		} catch (Exception e) {
+			getLog().error(e);
+			throw new RuntimeException("Impossible d'avoir le nom de la class java du paramètre de la classe " + klass, e);
 		}
-		var ex = klass.getSuperclass();
-		var params = ex.getTypeParameters();
-		if( params.length != 0 ) {
-			var superClass = klass.getGenericSuperclass().getTypeName();
-			superClass = superClass.substring(1 + superClass.indexOf("<"), superClass.lastIndexOf(">"));
-			return superClass;
-		}
-		return null;
 	}
 	
 	private String getExtendParameterName(Class<?> klass) {		
-		var ex = getExtendParameterJavaName(klass);
-		if( ex != null && ex.contains(".") ) {
-			return ex.substring(ex.lastIndexOf(".") + 1);
+		try {
+			var ex = getExtendParameterJavaName(klass);
+			if( ex != null && ex.contains(".") ) {
+				return ex.substring(ex.lastIndexOf(".") + 1);
+			}
+			return null;
+		} catch (Exception e) {
+			getLog().error(e);
+			throw new RuntimeException("Impossible d'avoir le nom du paramètre de la classe " + klass, e);
 		}
-		return null;
 	}
 	
 	private boolean isGeneric(Class<?> klass) {
@@ -229,7 +257,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		if( !field.getType().equals(Map.class) && isGeneric(field)) {
 			var fieldType = field.toGenericString();
 			fieldType = fieldType.substring(1 + fieldType.indexOf("<"), fieldType.lastIndexOf(">"));
-			return CommonUtils.getTsType(mappableComponentPostfix, fieldType.substring(1 + fieldType.lastIndexOf(".")));
+			return CommonUtils.getTsType(CANDIDATE_COMPONENT_POSTFIX, fieldType.substring(1 + fieldType.lastIndexOf(".")));
 		}
 		return null;
 	}
@@ -238,7 +266,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		if( isGeneric(field)) {	
 			var fieldType = field.toGenericString();
 			fieldType = fieldType.substring(1 + fieldType.indexOf("<"), fieldType.lastIndexOf(">"));
-			if( mappableComponentPostfix.stream().anyMatch(fieldType::endsWith)) {
+			if( Arrays.stream(CANDIDATE_COMPONENT_POSTFIX).anyMatch(fieldType::endsWith)) {
 				return fieldType;
 			}else {
 				var param = Arrays.stream(field.getDeclaringClass().getTypeParameters())
@@ -256,7 +284,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		if( field.isAnnotationPresent(TypeScriptInfos.class) ) {
 			return field.getAnnotation(TypeScriptInfos.class).type();
 		}
-		return CommonUtils.getTsType(mappableComponentPostfix, field.getType().getSimpleName());
+		return CommonUtils.getTsType(CANDIDATE_COMPONENT_POSTFIX, field.getType().getSimpleName());
 	}
 	
 	private boolean isEnumValue(Field field) {
@@ -264,7 +292,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private boolean isImportable(Field field) {
-		return mappableComponentPostfix.stream().anyMatch(field.getType().getName()::endsWith);
+		return Arrays.stream(CANDIDATE_COMPONENT_POSTFIX).anyMatch(field.getType().getName()::endsWith);
 	}
 	
 	private String getImportJavaType(Field field) {

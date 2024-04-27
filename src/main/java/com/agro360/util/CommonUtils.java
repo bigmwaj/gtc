@@ -1,7 +1,7 @@
 package com.agro360.util;
 
+import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class CommonUtils {
@@ -12,7 +12,7 @@ public class CommonUtils {
 		return m;
 	}
 	
-	public static String getTsType(List<String> filterParam, String javaType) {
+	public static String getTsType(String[] filterParam, String javaType) {
 		switch (javaType) {
 		case "String":
 			return "string";
@@ -37,7 +37,7 @@ public class CommonUtils {
 			return "number";
 
 		default:
-			var anyType = filterParam.stream().noneMatch(javaType::endsWith);
+			var anyType = Arrays.stream(filterParam).noneMatch(javaType::endsWith);
 			
 			if ( anyType ) {
 				return "any";

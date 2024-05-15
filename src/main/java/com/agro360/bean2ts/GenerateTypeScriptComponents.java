@@ -98,7 +98,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		}
 		var file = new File(TS_PROJECT_APP_DIR + "/backed/" + module.getNamespace() + ".ts");
 		try(var out = new BufferedWriter(new FileWriter(file, false))) {
-			var code = module.getCode(importSource);
+			var code = module.getSourceCode(importSource);
 			if( contentChanged(file, code) ) {
 				file.createNewFile();
 				out.write(code);				

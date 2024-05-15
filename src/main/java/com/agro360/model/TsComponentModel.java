@@ -61,7 +61,7 @@ public class TsComponentModel {
 					finalName += "<" + extendParameterName + ">";
 				}
 			}
-			var sourceCode = fields.stream().map(TsFieldModel::getFieldCode).collect(Collectors.joining("\n"));
+			var sourceCode = fields.stream().map(TsFieldModel::getFieldSourceCode).collect(Collectors.joining("\n"));
 			var interfaceFormat = "\nexport interface %s {\n%s\n};";
 			return String.format(interfaceFormat, finalName, sourceCode);
 		}

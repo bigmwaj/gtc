@@ -52,7 +52,7 @@ public class TsModuleModel {
 			.collect(Collectors.joining("\n"));
 	}
 	
-	public String getCode(Map<String, TsComponentModel> importSource) {
+	public String getSourceCode(Map<String, TsComponentModel> importSource) {
 		return String.format("%s\n%s", getModuleImportCode(importSource), getModuleCodeWithoutImport());
 	}
 	

@@ -21,7 +21,7 @@ public class TsFieldModel {
 	
 	private String genericTypeImportJavaType;
 
-	public String getFieldCode() {
+	public String getFieldSourceCode() {
 		
 		if( isEnumValue ) {
 			return name;

@@ -1,55 +1,75 @@
 package com.agro360.bean2ts;
 
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 
-import com.agro360.bo.bean.common.AbstractLigneBean;
-import com.agro360.bo.utils.TypeScriptInfos;
 import com.agro360.model.TsComponentModel;
 import com.agro360.model.TsComponentModel.TYPE;
 import com.agro360.model.TsFieldModel;
 import com.agro360.model.TsModuleModel;
 import com.agro360.util.CommonUtils;
 
-@Mojo(name = "gtc")
-public class GenerateTypeScriptComponents extends AbstractMojo {
-
-	private static final String SOURCE_ROOT_PACKAGE = "com.agro360";
+@Mojo(name = "gtc", requiresProject = true, 
+	defaultPhase = LifecyclePhase.PROCESS_CLASSES, 
+	requiresDependencyResolution = ResolutionScope.COMPILE, 
+	threadSafe = true)
+public class GenerateTypeScriptComponents extends AbstractMojo {	 
 	
-	private static final String TS_PROJECT_APP_DIR = "C:\\WorkSpace\\0-projects\\0-business\\agro360v2\\agro360-web-client\\src\\app\\";
-
+	@Parameter(required = true)
+	private String packageSource;
+	
+	@Parameter(required = true)
+	private String targetDir;
+	
+	@Parameter()
+	private Map<String, String> javaTypeMap = new HashMap<>();
+	
+	@Parameter()
+	private Map<String, String> fieldTypeMap = new HashMap<>();
+	
 	private final String[] CANDIDATE_COMPONENT_POSTFIX = {
 			"Bean", 
 			"EnumVd", 
 			"Message", 
 			"FieldMetadata"
 	};
-
+	
+	@Override
 	public void execute() throws MojoExecutionException {
 		try {
-			getLog().info(String.format("Deleting angular backed dir %s ...", TS_PROJECT_APP_DIR));
-			deleteDir(new File(TS_PROJECT_APP_DIR + "/backed"));
-			getLog().info(String.format("Deleting angular backed dir %s completed. [Succes!]", TS_PROJECT_APP_DIR));
 			
-			getLog().info(String.format("Scanning candidate components from [%s]...", SOURCE_ROOT_PACKAGE));
+			CommonUtils.initJavaTypeMap(javaTypeMap);
+			
+			//getLog().info(String.format("Deleting angular backed dir %s ...", targetDir));
+			//deleteDir(new File(targetDir + "/backed"));
+			//getLog().info(String.format("Deleting angular backed dir %s completed. [Succes!]", targetDir));
+			
+			getLog().info(String.format("Scanning candidate components from [%s]...", packageSource));
 			var components = scanneClasses();
-			getLog().info(String.format("Scanning candidate components from [%s] completed! Total scanned %d", SOURCE_ROOT_PACKAGE, components.size()));
+			getLog().info(String.format("Scanning candidate components from [%s] completed! Total scanned %d", packageSource, components.size()));
 			
 			getLog().info(String.format("Generating typescript components..."));
 			var importSource = components.stream()
@@ -69,42 +89,31 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		}
 	}
 	
-	private void deleteDir(File file) {
-		if( file.exists() ) {
-			if( file.isDirectory() ) {
-				String[] children = file.list();
-				if( children.length == 0 ) {
-					file.delete();
-				}else {
-					for (String fileName : children) {
-						deleteDir(new File(file.getAbsoluteFile() + "/" + fileName));
-					}
-				}
-			}else {
-				file.delete();
-			}
+	private boolean contentChanged(File file, String content) {	
+		try(var st1 = new FileInputStream(file); var st2 = new ByteArrayInputStream(content.getBytes())){
+			return !IOUtils.contentEquals(st1, st2);
+		}catch (Exception e) {
+			getLog().error(e);
 		}
-	}
-	
-	// TODO Modifier un fichier que si le contenu a changé
-	private boolean contentChanged(File file, String content) {		
-		return true;
+
+		return false ;
 	}
 	
 	protected void saveTsFile(Map<String, TsComponentModel> importSource, TsModuleModel module) {
-		var backedDir = new File(TS_PROJECT_APP_DIR + "/backed/");
+		var backedDir = new File(targetDir + "/backed/");
 		if( !backedDir.exists()) {
 			backedDir.mkdirs();
 		}
-		var file = new File(TS_PROJECT_APP_DIR + "/backed/" + module.getNamespace() + ".ts");
-		try(var out = new BufferedWriter(new FileWriter(file, false))) {
-			var code = module.getSourceCode(importSource);
-			if( contentChanged(file, code) ) {
+		var file = new File(targetDir + "/backed/" + module.getNamespace() + ".ts");
+		var code = module.getSourceCode(importSource);
+		if( !file.exists() || contentChanged(file, code) ) {
+			getLog().info("Génération du fichier " + file.getAbsolutePath());
+			try(var out = new BufferedWriter(new FileWriter(file, false))) {
 				file.createNewFile();
 				out.write(code);				
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
 	
@@ -116,8 +125,8 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		Predicate<Class<?>> isNotInterface = e -> !e.isInterface();
 		
 		return Arrays.asList(
-				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Enum.class),
-				new Reflections(SOURCE_ROOT_PACKAGE, new SubTypesScanner(false)).getSubTypesOf(Object.class)
+				new Reflections(packageSource, new SubTypesScanner(false)).getSubTypesOf(Enum.class),
+				new Reflections(packageSource, new SubTypesScanner(false)).getSubTypesOf(Object.class)
 			)
 			.stream()
 			.flatMap(Set::stream)
@@ -132,7 +141,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private String getTsNamespace(Class<?> klass) {
-		var ns = klass.getName().replace(SOURCE_ROOT_PACKAGE, "")
+		var ns = klass.getName().replace(packageSource, "")
 				.replace(klass.getSimpleName(), "")
 				.replace(".bo", "");
 		
@@ -191,9 +200,6 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	
 	private String getExtendParameterJavaName(Class<?> klass) {
 		try {
-			if( klass.isAnnotationPresent(TypeScriptInfos.class) && klass.getAnnotation(TypeScriptInfos.class).igroreSuperClassParam()) {
-				return null;
-			}
 			var ex = klass.getSuperclass();
 			var params = ex.getTypeParameters();
 			if( params.length != 0 ) {
@@ -222,8 +228,7 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 	
 	private boolean isGeneric(Class<?> klass) {
-		return !AbstractLigneBean.class.getName().equals(klass.getName()) 
-				&& klass.getTypeParameters().length > 0;
+		return klass.getTypeParameters().length > 0;
 	}
 	
 	private String getGenericType(Class<?> klass) {
@@ -281,9 +286,16 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 	}
 
 	private String getType(Field field) {
-		if( field.isAnnotationPresent(TypeScriptInfos.class) ) {
-			return field.getAnnotation(TypeScriptInfos.class).type();
+		var fieldFullName = field.getDeclaringClass().getName() + "." + field.getName();
+		if( fieldTypeMap.containsKey(fieldFullName) ) {
+			return fieldTypeMap.get(fieldFullName);
 		}
+		
+		var fieldType = field.getType().getSimpleName();
+		if( javaTypeMap.containsKey(fieldType) ) {
+			return javaTypeMap.get(fieldType);
+		}
+		
 		return CommonUtils.getTsType(CANDIDATE_COMPONENT_POSTFIX, field.getType().getSimpleName());
 	}
 	

@@ -3,9 +3,9 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>ca.eliteproservice</groupId>
+	<groupId>com.agro360</groupId>
 	<artifactId>bean2ts-maven-plugin</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0</version>
 	<packaging>maven-plugin</packaging>
 	<name>agro360-bean2ts-plugin</name>
 	<description>Convert Java Component to Typescript Component - Maven Plugin</description>
@@ -25,27 +25,46 @@
 			<version>3.0</version>
 			<scope>provided</scope>
 		</dependency>
+
 		<dependency>
 			<groupId>org.apache.maven.plugin-tools</groupId>
 			<artifactId>maven-plugin-annotations</artifactId>
 			<version>${maven-plugin-tools.version}</version>
 			<scope>provided</scope>
-		</dependency>		
-		<dependency>
-			<groupId>com.agro360</groupId>
-			<artifactId>agro360-vd</artifactId>
-			<version>${agro360.project.version}</version>
 		</dependency>
+
 		<dependency>
-			<groupId>com.agro360</groupId>
-			<artifactId>agro360-service</artifactId>
-			<version>${agro360.project.version}</version>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.18.32</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-project</artifactId>
+			<version>2.2.1</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.maven.artifact</groupId>
+			<artifactId>maven-artifact</artifactId>
+			<version>3.0-alpha-1</version>
+			<scope>provided</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.reflections</groupId>
 			<artifactId>reflections</artifactId>
 			<version>0.9.12</version>
 		</dependency>
+
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.16.1</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -59,7 +78,8 @@
 						<execution>
 							<id>help-mojo</id>
 							<goals>
-								<!-- good practice is to generate help mojo for plugin -->
+								<!-- good practice is to generate help mojo for
+								plugin -->
 								<goal>helpmojo</goal>
 							</goals>
 						</execution>

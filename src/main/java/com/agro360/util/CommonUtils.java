@@ -2,6 +2,7 @@ package com.agro360.util;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class CommonUtils {
@@ -12,37 +13,26 @@ public class CommonUtils {
 		return m;
 	}
 	
-	public static String getTsType(String[] filterParam, String javaType) {
-		switch (javaType) {
-		case "String":
-			return "string";
-
-		case "boolean":
-		case "Boolean":
-			return "boolean";
-			
-		case "List":
-		case "Set":
-			return "Array";
-
-		case "short":
-		case "Short":
-		case "long":
-		case "Long":
-		case "int":
-		case "Integer":
-		case "double":
-		case "Double":			
-		case "BigDecimal":			
-			return "number";
-
-		default:
-			var anyType = Arrays.stream(filterParam).noneMatch(javaType::endsWith);
-			
-			if ( anyType ) {
-				return "any";
+	private static void initJavaTypeMap(Map<String, String> javaTypeMap, String TsType, String ... javaType) {
+		for (String jt : javaType) {
+			if( !javaTypeMap.containsKey(jt)) {
+				javaTypeMap.put(jt, TsType);
 			}
-			break;
+		}
+	}
+	
+	public static void initJavaTypeMap(Map<String, String> javaTypeMap) {
+		initJavaTypeMap(javaTypeMap, "string", "String");
+		initJavaTypeMap(javaTypeMap, "boolean", "boolean", "Boolean");
+		initJavaTypeMap(javaTypeMap, "Array", "List", "Set");
+		initJavaTypeMap(javaTypeMap, "number", "Short", "short", "long", "Long", "int", "Integer", "double", "Double", "BigDecimal");
+	}
+	
+	public static String getTsType(String[] filterParam, String javaType) {
+		var anyType = Arrays.stream(filterParam).noneMatch(javaType::endsWith);
+		
+		if ( anyType ) {
+			return "any";
 		}
 		return javaType;
 	}

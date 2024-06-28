@@ -63,6 +63,8 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 			
 			CommonUtils.initJavaTypeMap(javaTypeMap);
 			
+			getLog().info("Liste des types est " + javaTypeMap);
+			
 			//getLog().info(String.format("Deleting angular backed dir %s ...", targetDir));
 			//deleteDir(new File(targetDir + "/backed"));
 			//getLog().info(String.format("Deleting angular backed dir %s completed. [Succes!]", targetDir));
@@ -262,7 +264,12 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 		if( !field.getType().equals(Map.class) && isGeneric(field)) {
 			var fieldType = field.toGenericString();
 			fieldType = fieldType.substring(1 + fieldType.indexOf("<"), fieldType.lastIndexOf(">"));
-			return CommonUtils.getTsType(CANDIDATE_COMPONENT_POSTFIX, fieldType.substring(1 + fieldType.lastIndexOf(".")));
+			fieldType = fieldType.substring(1 + fieldType.lastIndexOf("."));
+			
+			if( javaTypeMap.containsKey(fieldType) ) {
+				return javaTypeMap.get(fieldType);
+			}
+			return CommonUtils.getTsType(CANDIDATE_COMPONENT_POSTFIX, fieldType);
 		}
 		return null;
 	}
@@ -326,6 +333,5 @@ public class GenerateTypeScriptComponents extends AbstractMojo {
 				.importJavaType(getImportJavaType(field))
 				.build();
 	}
-	
 	
 }
